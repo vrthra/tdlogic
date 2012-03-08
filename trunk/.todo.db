@@ -1,0 +1,30 @@
+db(todo,normal,osu,admission,'Things to do with admission').
+db(todo,normal,osu,life,'Things to do with life').
+db(todo,normal,life,dl,'get driving license').
+db(todo,normal,life,apartment,'get apartment for spring').
+db(todo,normal,life,books,'books to read').
+db(todo,normal,books,capek,'war with the newts').
+db(todo,normal,books,dobry,'Dobry vojak Svejk').
+db(todo,normal,life,movies,'Movies to watch').
+db(todo,normal,movies,czeck_movies,'Czeck Movies').
+db(todo,normal,czech_movies,kuky,'Kuky se vraci').
+db(todo,normal,czech_movies,kolja,'Kolja - Jan Sverak').
+db(todo,normal,czech_movies,wild,'Wild Movie').
+db(todo,normal,life,tax,'Tax').
+db(todo,normal,osu,academics,'Things to do with academics').
+db(todo,normal,academics,prilim,'Decide prilim topic').
+db(todo,normal,academics,quals,'PhD quals').
+db(done,normal,academics,cs582,'Object Oriented Analysis and Design').
+db(done,normal,academics,cs321,'Theory of Computation').
+db(todo,normal,academics,cs581,'Programming Languages').
+db(todo,normal,academics,cs533,'Intelligent Agents').
+db(todo,normal,academics,cs507,'Grad Seminar').
+db(todo,normal,academics,research,'Research Topics').
+db(done,normal,academics,ta,'cs321 t.a').
+db(todo,normal,academics,ta,'cs480 t.a').
+db(todo,normal,academics,intern,'get internship').
+db(todo,normal,life,ihouse,'iHouse').
+db(todo,normal,ihouse,rent,'Pay 1033 to steve').
+db(todo,normal,research,paper,'Papeer for VLHCC').
+db(todo,important,tax,conra,'CONRA_2011').
+db(todo,low,ta,meeting,'Meet with Dr Budd').
