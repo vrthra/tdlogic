@@ -11,48 +11,79 @@ read_line(Codes) :-
         read_line(Codes1)
     ).
 
-write_str(X):-
-    write('\''),
-    write(X),
-    write('\'').
+portray(str(S)):- write('\''), write(S), write('\'').
 
-c :-
-    write(',').
-
-write_db(db(A,B,C,D,E)):-
-    write('db('),
-    write(A),c,
-    write(B),c,
-    write(C),c,
-    write(D),c,
-    write_str(E),
-    write(').'),nl.
-
-print_db([]).
-print_db([X|Xs]):-
-    write_db(X),
-    print_db(Xs).
+print_arr([]).
+print_arr([X|Xs]):-
+    print(X), print('.'), nl,
+    print_arr(Xs).
 
 print_db :-
-    findall((db(Stat, Prio, Root, Name, Desc)), (db(Stat, Prio,Root, Name, Desc)), Ds),
-    print_db(Ds).
+    findall(db(Root, Name, str(Desc)), db(Root, Name, Desc), Ds),
+    print_arr(Ds).
+
+print_status :-
+    findall(status(Root, Name, Status), status(Root, Name, Status), Ss),
+    print_arr(Ss).
+
+print_priority :-
+    findall(priority(Root, Name, Priority), status(Root, Name, Priority), Ss),
+    print_arr(Ss).
 
 
-save :-
+db_dir('.todo/').
+
+
+save_db :-
     telling(Old),
-    tell('.todo.db'),
-    %write(':- dynamic(db/5).'),nl,
+    db_dir(DbDir),
+    atom_concat(DbDir, 'db.pl', Db),
+    tell(Db),
     !,
     print_db,
     told,
     tell(Old).
 
-create :-
+save_status :-
     telling(Old),
-    tell('.todo.db'),
-    %write(':- dynamic db/5.'),nl,
+    db_dir(DbDir),
+    atom_concat(DbDir, 'status.pl', Db),
+    tell(Db),
+    !,
+    print_status,
     told,
     tell(Old).
+
+save_priority :-
+    telling(Old),
+    db_dir(DbDir),
+    atom_concat(DbDir, 'priority.pl', Db),
+    tell(Db),
+    !,
+    print_priority,
+    told,
+    tell(Old).
+
+save :-
+  save_db,
+  save_status,
+  save_priority.
+
+touch(File) :- 
+    telling(Old),
+    tell(File),
+    told,
+    tell(Old).
+
+create :-
+    db_dir(DbDir),
+    make_directory(DbDir),
+    atom_concat(DbDir, 'db.pl', Db),
+    touch(Db),
+    atom_concat(DbDir, 'priority.pl', Prio),
+    touch(Prio),
+    atom_concat(DbDir, 'status.pl', Stat),
+    touch(Stat).
 
        
 string_tokens(Cs, Ts) :-
@@ -72,10 +103,12 @@ write_tab(N) :-
 % -----------------------------------------------
 
 add(Parent, Name, Desc) :-
-    assertz(db(todo,normal,Parent, Name, Desc)).
+    assertz(db(Parent, Name, Desc)),
+    assertz(status(Parent, Name, todo)),
+    assertz(priority(Parent, Name, normal)).
 
-:- dynamic(db/5).
-:- public(db/5).
+:- dynamic([db/3, status/3, priority/3]).
+:- public([db/3, status/3, priority/3]).
 
 load_db(File):-
     see(File),
@@ -164,15 +197,20 @@ command(add, Parent, Name) :-
     add(Parent, Name, AList).
 
 command(done, Parent, Name) :- 
-    db(todo, Priority, Parent, Name,Desc),
-    retractall(db(todo, Priority, Parent, Name, Desc)),
-    assertz(db(done, Priority, Parent, Name,Desc)).
+    db(Parent, Name, _),
+    status(Parent, Name, todo),
+    retractall(status(Parent, Name, todo)),
+    assertz(status(Parent, Name, done)).
 
 command(rm, Parent, Name) :- 
-    retractall(db(_R, _Priority, Parent, Name,_)).
+    retractall(db(Parent, Name,_)),
+    retractall(status(Parent, Name, _)),
+    retractall(priority(Parent, Name, _)).
 
 command(delete, Parent, Name) :- 
-    retractall(db(todo, _Priority, Parent, Name,_)).
+    status(Parent, Name, todo),
+    retractall(db(Parent, Name,_)),
+    retractall(status(Parent, Name, todo)).
 
 command(tag, Parent, Name, normal) :- 
         ncommand(tag, Parent, Name, normal).
@@ -182,44 +220,45 @@ command(tag, Parent, Name, low) :-
         ncommand(tag, Parent, Name, low).
 
 ncommand(tag, Parent, Name, Priority) :- 
-    db(Stat, Prio, Parent, Name,Desc),
-    retractall(db(Stat, Prio, Parent, Name, Desc)),
-    assertz(db(Stat, Priority, Parent, Name,Desc)).
+    db(Parent, Name,Desc),
+    status(Parent, Name, Status),
+    priority(Parent, Name, Prio),
+    retractall(priority(Parent, Name, Prio)),
+    assertz(priority(Parent, Name, Priority)).
 
 print_tree(Root, N, Restrict) :-
-    findall((Name, Prio, Desc, R), (db(R,Prio,Root, Name, Desc)), Ds),
+    findall((Root, Name, Desc), db(Root, Name, Desc), Ds),
     print_forest(Ds, N, Restrict).
 
 
-print_leaf(N, Name, low, Desc, todo) :-
+print_leaf(N, Root, Name, Desc) :- status(Root, Name, todo), priority(Root, Name, low),
     write_tab(N),c_white(Name), write(': '), write(Desc),nl.
 
-print_leaf(N, Name, important, Desc, todo) :-
+print_leaf(N, Root, Name, Desc) :- status(Root, Name, todo), priority(Root, Name, important),
     write_tab(N),c_byellow(Name), write(': '), write(Desc),nl.
 
-print_leaf(N, Name, Prio, Desc, todo) :-
+print_leaf(N, Root, Name, Desc) :- status(Root, Name, todo),
     write_tab(N),c_green(Name), write(': '), write(Desc),nl.
 
-print_leaf(N, Name, Desc, Prio, todo) :-
-    write_tab(N),c_green(Name), write(': '), write(Desc),nl.
-
-print_leaf(N, Name, Prio, Desc, done) :-
+print_leaf(N, Root, Name, Desc) :-
     write_tab(N),c_blue(Name), write(': '), write(Desc),nl.
 
-print_todo(N, Name, low, Desc, todo) :-
+ 
+print_todo(N, Root, Name, Desc) :- status(Root, Name, todo), priority(Root, Name, low),
     write_tab(N),c_white(Name), write(': '), write(Desc),nl.
 
-print_todo(N, Name, important, Desc, todo) :-
+print_todo(N, Root, Name,Desc) :- status(Root, Name, todo), priority(Root, Name, important),
     write_tab(N),c_byellow(Name), write(': '), write(Desc),nl.
 
-print_todo(N, Name, Prio, Desc, todo) :-
+print_todo(N, Root, Name, Desc) :- status(Root, Name, todo),
     write_tab(N),c_green(Name), write(': '), write(Desc),nl.
 
-print_todo(_N, _Name, _Prio, _Desc, done).
+print_todo(_N, Root, Name, _Desc) :- status(Root, Name, done).
 
 
-print_forest([(Name, Prio, Desc, R)|Xs], N, Restrict) :-
-    call(Restrict, N, Name, Prio, Desc, R),
+
+print_forest([(Root, Name, Desc)|Xs], N, Restrict) :-
+    call(Restrict, N, Root, Name, Desc),
     M is N+1,
     print_tree(Name, M, Restrict),
     print_forest(Xs, N, Restrict).
@@ -236,7 +275,9 @@ do_command :-
 
 
 main:-
-    load_db('.todo.db'),
+    load_db('.todo/db.pl'),
+    load_db('.todo/status.pl'),
+    load_db('.todo/priority.pl'),
     do_command.
 
 c_red(Str):- write('[0;31m'), write(Str),write('[0m').
