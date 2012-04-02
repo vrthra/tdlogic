@@ -27,17 +27,27 @@ print_status :-
     print_arr(Ss).
 
 print_priority :-
-    findall(priority(Root, Name, Priority), status(Root, Name, Priority), Ss),
+    findall(priority(Root, Name, Priority), priority(Root, Name, Priority), Ss),
     print_arr(Ss).
 
 
 db_dir('.todo/').
 
+db_pl(File):-
+    db_dir(DbDir),
+    atom_concat(DbDir, 'db.pl', File).
+
+status_pl(File):-
+    db_dir(DbDir),
+    atom_concat(DbDir, 'status.pl', File).
+
+priority_pl(File):-
+    db_dir(DbDir),
+    atom_concat(DbDir, 'priority.pl', File).
 
 save_db :-
     telling(Old),
-    db_dir(DbDir),
-    atom_concat(DbDir, 'db.pl', Db),
+    db_pl(Db),
     tell(Db),
     !,
     print_db,
@@ -46,8 +56,7 @@ save_db :-
 
 save_status :-
     telling(Old),
-    db_dir(DbDir),
-    atom_concat(DbDir, 'status.pl', Db),
+    status_pl(Db),
     tell(Db),
     !,
     print_status,
@@ -56,8 +65,7 @@ save_status :-
 
 save_priority :-
     telling(Old),
-    db_dir(DbDir),
-    atom_concat(DbDir, 'priority.pl', Db),
+    priority_pl(Db),
     tell(Db),
     !,
     print_priority,
@@ -77,12 +85,12 @@ touch(File) :-
 
 create :-
     db_dir(DbDir),
-    make_directory(DbDir),
-    atom_concat(DbDir, 'db.pl', Db),
+    (file_exists(DbDir); make_directory(DbDir)),
+    db_pl(Db),
     touch(Db),
-    atom_concat(DbDir, 'priority.pl', Prio),
+    priority_pl(Prio),
     touch(Prio),
-    atom_concat(DbDir, 'status.pl', Stat),
+    status_pl(Stat),
     touch(Stat).
 
        
@@ -275,9 +283,14 @@ do_command :-
 
 
 main:-
-    load_db('.todo/db.pl'),
-    load_db('.todo/status.pl'),
-    load_db('.todo/priority.pl'),
+    db_dir(DbDir),
+    (file_exists(DbDir); create),
+    db_pl(Db),
+    load_db(Db),
+    status_pl(Status),
+    load_db(Status),
+    priority_pl(Prio),
+    load_db(Prio),
     do_command.
 
 c_red(Str):- write('[0;31m'), write(Str),write('[0m').

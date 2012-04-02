@@ -28,3 +28,4 @@ status(ihouse,rent,todo).
 status(research,paper,todo).
 status(tax,conra,todo).
 status(ta,meeting,todo).
+status(osu,spring:2012,todo).
