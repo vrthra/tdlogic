@@ -28,3 +28,4 @@ priority(ihouse,rent,todo).
 priority(research,paper,todo).
 priority(tax,conra,todo).
 priority(ta,meeting,todo).
+priority(osu,spring:2012,normal).

@@ -28,3 +28,4 @@ db(ihouse,rent,'Pay 1033 to steve').
 db(research,paper,'Papeer for VLHCC').
 db(tax,conra,'CONRA_2011').
 db(ta,meeting,'Meet with Dr Budd').
+db(osu,spring:2012,'Spring Term').
