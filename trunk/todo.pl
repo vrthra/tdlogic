@@ -18,64 +18,50 @@ print_arr([X|Xs]):-
     print(X), print('.'), nl,
     print_arr(Xs).
 
-print_db :-
+printit(db) :-
     findall(db(Root, Name, str(Desc)), db(Root, Name, Desc), Ds),
     print_arr(Ds).
 
-print_status :-
+printit(status) :-
     findall(status(Root, Name, Status), status(Root, Name, Status), Ss),
     print_arr(Ss).
 
-print_priority :-
+printit(priority) :-
     findall(priority(Root, Name, Priority), priority(Root, Name, Priority), Ss),
     print_arr(Ss).
 
 
 db_dir('.todo/').
 
-db_pl(File):-
+pl_file(FName, File) :-
     db_dir(DbDir),
-    atom_concat(DbDir, 'db.pl', File).
+    atom_concat(DbDir, FName, File).
 
-status_pl(File):-
-    db_dir(DbDir),
-    atom_concat(DbDir, 'status.pl', File).
+topl(db,File):-
+    pl_file('db.pl', File).
 
-priority_pl(File):-
-    db_dir(DbDir),
-    atom_concat(DbDir, 'priority.pl', File).
+topl(status,File):-
+    pl_file('status.pl', File).
 
-save_db :-
+topl(priority,File):-
+    pl_file('priority.pl', File).
+
+notes_pl(File):-
+    pl_file('notes.pl', File).
+
+save(It) :-
     telling(Old),
-    db_pl(Db),
+    topl(It,Db),
     tell(Db),
     !,
-    print_db,
-    told,
-    tell(Old).
-
-save_status :-
-    telling(Old),
-    status_pl(Db),
-    tell(Db),
-    !,
-    print_status,
-    told,
-    tell(Old).
-
-save_priority :-
-    telling(Old),
-    priority_pl(Db),
-    tell(Db),
-    !,
-    print_priority,
+    printit(It),
     told,
     tell(Old).
 
 save :-
-  save_db,
-  save_status,
-  save_priority.
+  save(db),
+  save(status),
+  save(priority).
 
 touch(File) :- 
     telling(Old),
@@ -86,11 +72,11 @@ touch(File) :-
 create :-
     db_dir(DbDir),
     (file_exists(DbDir); make_directory(DbDir)),
-    db_pl(Db),
+    topl(db,Db),
     touch(Db),
-    priority_pl(Prio),
+    topl(priority,Prio),
     touch(Prio),
-    status_pl(Stat),
+    topl(status,Stat),
     touch(Stat).
 
        
@@ -285,11 +271,11 @@ do_command :-
 main:-
     db_dir(DbDir),
     (file_exists(DbDir); create),
-    db_pl(Db),
+    topl(db,Db),
     load_db(Db),
-    status_pl(Status),
+    topl(status,Status),
     load_db(Status),
-    priority_pl(Prio),
+    topl(priority,Prio),
     load_db(Prio),
     do_command.
 
