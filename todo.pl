@@ -238,36 +238,36 @@ ncommand(tag, Name, Priority) :-
     assertz(priority(Name, Priority)).
 
 print_tree(Root, N, Restrict) :-
-    findall((Root, Name, Desc), (parent(Root, Name), db(Name, Desc)), Ds),
+    findall((Name, Desc), (parent(Root, Name), db(Name, Desc)), Ds),
     print_forest(Ds, N, Restrict).
 
 
-print_leaf(N, Root, Name, Desc) :- status(Name, todo), priority(Name, low),
+print_leaf(N, Name, Desc) :- status(Name, todo), priority(Name, low),
     write_tab(N),c_white(Name), write(': '), write(Desc),nl.
 
-print_leaf(N, Root, Name, Desc) :- status(Name, todo), priority(Name, important),
+print_leaf(N, Name, Desc) :- status(Name, todo), priority(Name, important),
     write_tab(N),c_byellow(Name), write(': '), write(Desc),nl.
 
-print_leaf(N, Root, Name, Desc) :- status(Name, todo),
+print_leaf(N, Name, Desc) :- status(Name, todo),
     write_tab(N),c_green(Name), write(': '), write(Desc),nl.
 
-print_leaf(N, Root, Name, Desc) :-
+print_leaf(N, Name, Desc) :-
     write_tab(N),c_blue(Name), write(': '), write(Desc),nl.
 
  
-print_todo(N, Root, Name, Desc) :- status(Name, todo), priority(Name, low),
+print_todo(N, Name, Desc) :- status(Name, todo), priority(Name, low),
     write_tab(N),c_white(Name), write(': '), write(Desc),nl.
 
-print_todo(N, Root, Name,Desc) :- status(Name, todo), priority(Name, important),
+print_todo(N, Name,Desc) :- status(Name, todo), priority(Name, important),
     write_tab(N),c_byellow(Name), write(': '), write(Desc),nl.
 
-print_todo(N, Root, Name, Desc) :- status(Name, todo),
+print_todo(N, Name, Desc) :- status(Name, todo),
     write_tab(N),c_green(Name), write(': '), write(Desc),nl.
 
-print_todo(_N, Root, Name, _Desc) :- status(Name, done).
+print_todo(_N, Name, _Desc) :- status(Name, done).
 
-print_forest([(Root, Name, Desc)|Xs], N, Restrict) :-
-    call(Restrict, N, Root, Name, Desc),
+print_forest([(Name, Desc)|Xs], N, Restrict) :-
+    call(Restrict, N, Name, Desc),
     M is N+1,
     print_tree(Name, M, Restrict),
     print_forest(Xs, N, Restrict).
