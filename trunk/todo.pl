@@ -46,7 +46,7 @@ topl(status,File):-
 topl(priority,File):-
     pl_file('priority.pl', File).
 
-notes_pl(File):-
+topl(notes,File):-
     pl_file('notes.pl', File).
 
 save(It) :-
@@ -96,7 +96,7 @@ write_tab(N) :-
 
 % -----------------------------------------------
 
-add(Parent, Name, Desc) :-
+add(Parent, UName, Desc) :-
     assertz(db(Parent, Name, Desc)),
     assertz(status(Parent, Name, todo)),
     assertz(priority(Parent, Name, normal)).
@@ -183,7 +183,8 @@ command(List) :-
     write('unrec:'), write(List),nl.
 
 
-command(add, Parent, Name) :- 
+command(add, Parent, UName) :- 
+    ulcaseatom(Name, UName),
     write(Name),write('> '),
     read_line(List),
     atom_codes(SList, List),
@@ -249,8 +250,6 @@ print_todo(N, Root, Name, Desc) :- status(Root, Name, todo),
 
 print_todo(_N, Root, Name, _Desc) :- status(Root, Name, done).
 
-
-
 print_forest([(Root, Name, Desc)|Xs], N, Restrict) :-
     call(Restrict, N, Root, Name, Desc),
     M is N+1,
@@ -258,6 +257,17 @@ print_forest([(Root, Name, Desc)|Xs], N, Restrict) :-
     print_forest(Xs, N, Restrict).
 
 print_forest([],_, _).
+
+ulcaseatom(L, U) :-
+    atom_chars(U, Us), % !!!! this is dependent on sequence.
+    ulcase(Ls, Us),
+    atom_chars(L, Ls). 
+
+ulcase([L|Ls], [U|Us]) :-
+    lower_upper(L, U),
+    ulcase(Ls, Us).
+ulcase([], []).
+
 
 do_command :-
     write('todo> '),
