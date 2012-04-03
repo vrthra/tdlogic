@@ -96,7 +96,7 @@ write_tab(N) :-
 
 % -----------------------------------------------
 
-add(Parent, UName, Desc) :-
+add(Parent, Name, Desc) :-
     assertz(db(Parent, Name, Desc)),
     assertz(status(Parent, Name, todo)),
     assertz(priority(Parent, Name, normal)).
@@ -141,6 +141,26 @@ process([X|[]]) :-
     write_to_atom(Cmd, X),
     command(Cmd).
 
+command(Cmd, Sub, Arg, Rest) :- 
+    write('unrec'),nl.
+
+command(done, Name) :- 
+    db(Parent, Name, _),
+    status(Parent, Name, todo),
+    retractall(status(Parent, Name, todo)),
+    assertz(status(Parent, Name, done)).
+
+command(rm, Name) :- 
+    retractall(db(_, Name,_)),
+    retractall(status(_, Name, _)),
+    retractall(priority(_, Name, _)).
+
+command(delete, Name) :- 
+    status(_, Name, todo),
+    retractall(db(_, Name,_)),
+    retractall(status(_, Name, todo)).
+
+
 command(load, File) :-
     load_db(File).
 
@@ -165,12 +185,12 @@ command(sexit) :-
 
 command(help) :-
     write('add <parent> <name> -> Desc'),nl,
-    write('rm <parent> <name> (even done)'),nl,
-    write('delete <parent> <name> (todo)'),nl,
-    write('done <parent> <name>'),nl,
+    write('rm <name> (even for done tasks)'),nl,
+    write('delete <name> (works only with tasks with status todo)'),nl,
+    write('done <name>'),nl,
     write('show <name>'),nl,
     write('list <name>'),nl,
-    write('tag <parent> <name> <priority>'),nl,
+    write('tag <name> <priority>'),nl,
     write('load <file>'),nl.
 
 command(show) :-
@@ -191,31 +211,15 @@ command(add, Parent, UName) :-
     write_to_atom(AList, SList),
     add(Parent, Name, AList).
 
-command(done, Parent, Name) :- 
-    db(Parent, Name, _),
-    status(Parent, Name, todo),
-    retractall(status(Parent, Name, todo)),
-    assertz(status(Parent, Name, done)).
+command(tag, Name, normal) :- 
+        ncommand(tag, Name, normal).
+command(tag, Name, important) :- 
+        ncommand(tag, Name, important).
+command(tag, Name, low) :- 
+        ncommand(tag, Name, low).
 
-command(rm, Parent, Name) :- 
-    retractall(db(Parent, Name,_)),
-    retractall(status(Parent, Name, _)),
-    retractall(priority(Parent, Name, _)).
-
-command(delete, Parent, Name) :- 
-    status(Parent, Name, todo),
-    retractall(db(Parent, Name,_)),
-    retractall(status(Parent, Name, todo)).
-
-command(tag, Parent, Name, normal) :- 
-        ncommand(tag, Parent, Name, normal).
-command(tag, Parent, Name, important) :- 
-        ncommand(tag, Parent, Name, important).
-command(tag, Parent, Name, low) :- 
-        ncommand(tag, Parent, Name, low).
-
-ncommand(tag, Parent, Name, Priority) :- 
-    db(Parent, Name,Desc),
+ncommand(tag, Name, Priority) :- 
+    db(Parent, Name, Desc),
     status(Parent, Name, Status),
     priority(Parent, Name, Prio),
     retractall(priority(Parent, Name, Prio)),
