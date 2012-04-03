@@ -19,15 +19,19 @@ print_arr([X|Xs]):-
     print_arr(Xs).
 
 printit(db) :-
-    findall(db(Root, Name, str(Desc)), db(Root, Name, Desc), Ds),
+    bagof(db(Name, str(Desc)), db(Name, Desc), Ds),
+    print_arr(Ds).
+
+printit(parent) :-
+    bagof(parent(Parent, Name), parent(Parent, Name), Ds),
     print_arr(Ds).
 
 printit(status) :-
-    findall(status(Root, Name, Status), status(Root, Name, Status), Ss),
+    bagof(status(Name, Status), status(Name, Status), Ss),
     print_arr(Ss).
 
 printit(priority) :-
-    findall(priority(Root, Name, Priority), priority(Root, Name, Priority), Ss),
+    bagof(priority(Name, Priority), priority(Name, Priority), Ss),
     print_arr(Ss).
 
 
@@ -46,8 +50,8 @@ topl(status,File):-
 topl(priority,File):-
     pl_file('priority.pl', File).
 
-topl(notes,File):-
-    pl_file('notes.pl', File).
+topl(parent,File):-
+    pl_file('parent.pl', File).
 
 save(It) :-
     telling(Old),
@@ -60,6 +64,7 @@ save(It) :-
 
 save :-
   save(db),
+  save(parent),
   save(status),
   save(priority).
 
@@ -72,12 +77,10 @@ touch(File) :-
 create :-
     db_dir(DbDir),
     (file_exists(DbDir); make_directory(DbDir)),
-    topl(db,Db),
-    touch(Db),
-    topl(priority,Prio),
-    touch(Prio),
-    topl(status,Stat),
-    touch(Stat).
+    topl(db,Db),touch(Db),
+    topl(parent,Rel),touch(Rel),
+    topl(priority,Prio),touch(Prio),
+    topl(status,Stat),touch(Stat).
 
        
 string_tokens(Cs, Ts) :-
@@ -97,12 +100,13 @@ write_tab(N) :-
 % -----------------------------------------------
 
 add(Parent, Name, Desc) :-
-    assertz(db(Parent, Name, Desc)),
-    assertz(status(Parent, Name, todo)),
-    assertz(priority(Parent, Name, normal)).
+    assertz(db(Name, Desc)),
+    assertz(parent(Parent, Name)),
+    assertz(status(Name, todo)),
+    assertz(priority(Name, normal)).
 
-:- dynamic([db/3, status/3, priority/3]).
-:- public([db/3, status/3, priority/3]).
+:- dynamic([db/2, parent/2, status/2, priority/2]).
+:- public([db/2, parent/2, status/3, priority/2]).
 
 load_db(File):-
     see(File),
@@ -145,20 +149,23 @@ command(Cmd, Sub, Arg, Rest) :-
     write('unrec'),nl.
 
 command(done, Name) :- 
-    db(Parent, Name, _),
-    status(Parent, Name, todo),
-    retractall(status(Parent, Name, todo)),
-    assertz(status(Parent, Name, done)).
+    status(Name, todo),
+    retractall(status(Name, todo)),
+    assertz(status(Name, done)).
 
 command(rm, Name) :- 
-    retractall(db(_, Name,_)),
-    retractall(status(_, Name, _)),
-    retractall(priority(_, Name, _)).
+    retractall(db(Name,_)),
+    retractall(parent(_, Name)),
+    retractall(status(Name, _)),
+    retractall(priority(Name, _)).
 
 command(delete, Name) :- 
-    status(_, Name, todo),
-    retractall(db(_, Name,_)),
-    retractall(status(_, Name, todo)).
+    status(Name, todo),
+    parent(Parent, Name),
+    retractall(db(Name,_)),
+    retractall(parent(Parent,Name)),
+    retractall(priority(Name,_)),
+    retractall(status(Name, todo)).
 
 
 command(load, File) :-
@@ -196,20 +203,25 @@ command(help) :-
 command(show) :-
     print_tree(osu, 0, print_leaf).
 
-command(dump) :-
-    listing(db/5).
+%command(dump) :-
+%    listing(db/5).
 
 command(List) :-
     write('unrec:'), write(List),nl.
 
 
-command(add, Parent, UName) :- 
+command(add, Parent, UName) :-
     ulcaseatom(Name, UName),
-    write(Name),write('> '),
-    read_line(List),
-    atom_codes(SList, List),
-    write_to_atom(AList, SList),
-    add(Parent, Name, AList).
+    write(Name),
+    (db(Name, Desc) -> (
+      write(' Already used. '), write(': '), write(Desc), nl
+    ) ; (
+      write('> '),
+      read_line(List),
+      atom_codes(SList, List),
+      write_to_atom(AList, SList),
+      add(Parent, Name, AList)
+    )).
 
 command(tag, Name, normal) :- 
         ncommand(tag, Name, normal).
@@ -219,40 +231,40 @@ command(tag, Name, low) :-
         ncommand(tag, Name, low).
 
 ncommand(tag, Name, Priority) :- 
-    db(Parent, Name, Desc),
-    status(Parent, Name, Status),
-    priority(Parent, Name, Prio),
-    retractall(priority(Parent, Name, Prio)),
-    assertz(priority(Parent, Name, Priority)).
+    db(Name, Desc),
+    status(Name, Status),
+    priority(Name, Prio),
+    retractall(priority(Name, Prio)),
+    assertz(priority(Name, Priority)).
 
 print_tree(Root, N, Restrict) :-
-    findall((Root, Name, Desc), db(Root, Name, Desc), Ds),
+    findall((Root, Name, Desc), (parent(Root, Name), db(Name, Desc)), Ds),
     print_forest(Ds, N, Restrict).
 
 
-print_leaf(N, Root, Name, Desc) :- status(Root, Name, todo), priority(Root, Name, low),
+print_leaf(N, Root, Name, Desc) :- status(Name, todo), priority(Name, low),
     write_tab(N),c_white(Name), write(': '), write(Desc),nl.
 
-print_leaf(N, Root, Name, Desc) :- status(Root, Name, todo), priority(Root, Name, important),
+print_leaf(N, Root, Name, Desc) :- status(Name, todo), priority(Name, important),
     write_tab(N),c_byellow(Name), write(': '), write(Desc),nl.
 
-print_leaf(N, Root, Name, Desc) :- status(Root, Name, todo),
+print_leaf(N, Root, Name, Desc) :- status(Name, todo),
     write_tab(N),c_green(Name), write(': '), write(Desc),nl.
 
 print_leaf(N, Root, Name, Desc) :-
     write_tab(N),c_blue(Name), write(': '), write(Desc),nl.
 
  
-print_todo(N, Root, Name, Desc) :- status(Root, Name, todo), priority(Root, Name, low),
+print_todo(N, Root, Name, Desc) :- status(Name, todo), priority(Name, low),
     write_tab(N),c_white(Name), write(': '), write(Desc),nl.
 
-print_todo(N, Root, Name,Desc) :- status(Root, Name, todo), priority(Root, Name, important),
+print_todo(N, Root, Name,Desc) :- status(Name, todo), priority(Name, important),
     write_tab(N),c_byellow(Name), write(': '), write(Desc),nl.
 
-print_todo(N, Root, Name, Desc) :- status(Root, Name, todo),
+print_todo(N, Root, Name, Desc) :- status(Name, todo),
     write_tab(N),c_green(Name), write(': '), write(Desc),nl.
 
-print_todo(_N, Root, Name, _Desc) :- status(Root, Name, done).
+print_todo(_N, Root, Name, _Desc) :- status(Name, done).
 
 print_forest([(Root, Name, Desc)|Xs], N, Restrict) :-
     call(Restrict, N, Root, Name, Desc),
@@ -287,6 +299,8 @@ main:-
     (file_exists(DbDir); create),
     topl(db,Db),
     load_db(Db),
+    topl(parent,Rel),
+    load_db(Rel),
     topl(status,Status),
     load_db(Status),
     topl(priority,Prio),
