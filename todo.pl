@@ -12,32 +12,38 @@ read_line(Codes) :-
     ).
 
 portray(str(S)):- write('\''), write(S), write('\'').
-portray(d(D,M,Y)) :- write(D),write('/'), write(M), write('/'), write(Y).
+portray(date(D,M,Y)) :- write(D),write('/'), write(M), write('/'), write(Y).
+portray(due(Name)) :- date(Name, d(D,M,Y)), write(Name), write(' : '), print(date(D,M,Y)).
 
 print_arr([]).
 print_arr([X|Xs]):-
-    print(X), print('.'), nl,
+    print(X),nl,
     print_arr(Xs).
+
+print_clause([]).
+print_clause([X|Xs]):-
+    print(X),write('.'), nl,
+    print_clause(Xs).
 
 printit(db) :-
     setof(db(Name, str(Desc)), db(Name, Desc), Ds),
-    print_arr(Ds).
+    print_clause(Ds).
 
 printit(parent) :-
     setof(parent(Parent, Name), parent(Parent, Name), Ds),
-    print_arr(Ds).
+    print_clause(Ds).
 
 printit(status) :-
     setof(status(Name, Status), status(Name, Status), Ss),
-    print_arr(Ss).
+    print_clause(Ss).
 
 printit(priority) :-
     setof(priority(Name, Priority), priority(Name, Priority), Ss),
-    print_arr(Ss).
+    print_clause(Ss).
 
 printit(date) :-
     setof(date(Name, Date), date(Name, Date), Ss),
-    print_arr(Ss).
+    print_clause(Ss).
 
 
 db_dir('.todo/').
@@ -138,7 +144,7 @@ load_db(File):-
     seen.
 
 % -----------------------------------------------
-today(Day,Month,Year) :-
+today(d(Day,Month,Year)) :-
   date_time(dt(Year, Month, Day, Hour, Minute, Second)).
 
 parse_date(Txt, D) :- phrase(date(D), Txt).
@@ -166,7 +172,7 @@ due_day(Year, Month, Day, Name) :-
   date(Name, d(D,Month,Year)),
   Day #>=# D.
 
-due_date(Day, Month, Year, Name) :- 
+due_date(d(Day, Month, Year), Name) :- 
     due_year(Year, Name);
     due_month(Year, Month, Name);
     due_day(Year, Month, Day, Name).
@@ -175,11 +181,14 @@ due_date(Day, Month, Year, Name) :-
 
 process([]).
 
-process([W,X,Y|Rest]) :-
-    write_to_atom(Cmd, W),
-    write_to_atom(SubCmd, X),
-    write_to_atom(Arg, Y),
-    command(Cmd, SubCmd, Arg, Rest).
+process([X|[]]) :-
+    write_to_atom(Cmd, X),
+    command(Cmd).
+
+process([X,Y|[]]) :-
+    write_to_atom(Cmd, X),
+    write_to_atom(SubCmd, Y),
+    command(Cmd, SubCmd).
 
 process([X,Y,Z|[]]) :-
     write_to_atom(Cmd, X),
@@ -187,14 +196,11 @@ process([X,Y,Z|[]]) :-
     write_to_atom(Arg, Z),
     command(Cmd, SubCmd, Arg).
 
-process([X,Y|[]]) :-
+process([X,Y,Z|Rest]) :-
     write_to_atom(Cmd, X),
     write_to_atom(SubCmd, Y),
-    command(Cmd, SubCmd).
-
-process([X|[]]) :-
-    write_to_atom(Cmd, X),
-    command(Cmd).
+    write_to_atom(Arg, Z),
+    command(Cmd, SubCmd, Arg, Rest).
 
 ncommand(tag, Name, Priority) :- 
     db(Name, Desc),
@@ -202,6 +208,12 @@ ncommand(tag, Name, Priority) :-
     priority(Name, Prio),
     retractall(priority(Name, Prio)),
     assertz(priority(Name, Priority)).
+
+
+ncommand(due, d(Day,Month,Year)) :-
+    setof(due(Name),
+    (due_date(d(Day, Month, Year), Name), status(Name, todo)), Res) -> (print_arr(Res),nl) ; nl.
+
 
 command(Cmd, Sub, Arg, Rest) :- 
     write('unrec'),nl.
@@ -219,7 +231,7 @@ command(add, Parent, UName) :-
       add(Parent, Name, AList)
     )).
 
-command(by, Name, DayMonthYear) :-
+command(by, DayMonthYear, Name) :-
     atom_codes(DayMonthYear, DayMonthYearS),
     parse_date(DayMonthYearS, d(Day,Month,Year)),
     retractall(date(Name, _)),
@@ -267,7 +279,7 @@ command(list, Root) :-
 command(due, DayMonthYear) :-
     atom_codes(DayMonthYear, DayMonthYearS),
     parse_date(DayMonthYearS, d(Day,Month,Year)) -> (
-      setof(Name, due_date(Day, Month, Year, Name), Res) -> (print_arr(Res),nl) ; nl
+      ncommand(due, d(Day, Month, Year))
     ) ; (
       write('Incorrect Date format'), nl
     ).
@@ -297,7 +309,7 @@ command(help) :-
     write('rm <name> (even for done tasks)'),nl,
     write('delete <name> (works only with tasks with status todo)'),nl,
     write('done <name>'),nl,
-    write('by <name> <dd/mm/yyyy>'),nl,
+    write('by <dd/mm/yyyy> <name>'),nl,
     write('due <dd/mm/yyyy>'),nl,
     write('show <name>'),nl,
     write('list <name>'),nl,
@@ -311,8 +323,8 @@ command(show) :-
 %    listing(db/5).
 
 command(due) :-
-    today(Day, Month, Year),
-    setof(Name, due_date(Day, Month, Year, Name), Res) -> (print_arr(Res),nl) ; nl .
+    today(d(Day, Month, Year)),
+    ncommand(due, d(Day, Month, Year)).
 
 command(List) :-
     write('unrec:'), write(List),nl.
@@ -324,32 +336,42 @@ print_tree(Root, N, Restrict) :-
 
 
 print_leaf(N, Name, Desc) :- status(Name, todo), priority(Name, low),
-    write_tab(N),c_white(Name), write(': '), write(Desc),!.
+    write_tab(N),c_white(Name), write(': '),
+    (date(Name, d(D,M,Y)) -> print(date(D,M,Y)) ; write(' ')),nl,
+    write_tab(N),write('  '), write(': '), write(Desc),nl,!.
 
 print_leaf(N, Name, Desc) :- status(Name, todo), priority(Name, important),
-    write_tab(N),c_byellow(Name), write(': '), write(Desc),!.
+    write_tab(N),c_byellow(Name), write(': '),
+    (date(Name, d(D,M,Y)) -> print(date(D,M,Y)) ; write(' ')),nl,
+    write_tab(N),write('  '), write(Desc),nl,!.
 
 print_leaf(N, Name, Desc) :- status(Name, todo),
-    (date(Name, D) -> print(D) ; write(' ')),
-    write_tab(N),c_green(Name), write(': '), write(Desc),!.
+    write_tab(N),c_green(Name), write(': '),
+    (date(Name, d(D,M,Y)) -> print(date(D,M,Y)) ; write(' ')),nl,
+    write_tab(N),write('  '), write(Desc),nl,!.
 
 print_leaf(N, Name, Desc) :-
-    write_tab(N),c_blue(Name), write(': '), write(Desc),!.
+    write_tab(N),c_blue(Name), write(': '),
+    (date(Name, d(D,M,Y)) -> print(date(D,M,Y)) ; write(' ')),nl,
+    write_tab(N),write('  '), write(Desc),nl,!.
+
+print_todo(N, Name, Desc) :- status(Name, todo), today(D), due_date(D, Name),
+    write_tab(N),c_red(Name), write(': '), write(Desc),nl,!.
 
 print_todo(N, Name, Desc) :- status(Name, todo), priority(Name, low),
-    write_tab(N),c_white(Name), write(': '), write(Desc),!.
+    write_tab(N),c_white(Name), write(': '), write(Desc),nl,!.
 
 print_todo(N, Name,Desc) :- status(Name, todo), priority(Name, important),
-    write_tab(N),c_byellow(Name), write(': '), write(Desc),!.
+    write_tab(N),c_byellow(Name), write(': '), write(Desc),nl,!.
 
 print_todo(N, Name, Desc) :- status(Name, todo),
-    write_tab(N),c_green(Name), write(': '), write(Desc),!.
+    write_tab(N),c_green(Name), write(': '), write(Desc),nl,!.
 
 print_todo(_N, Name, _Desc) :- status(Name, done).
 % skip printing all the done tasks.
 
 print_forest([(Name, Desc)|Xs], N, Restrict) :-
-    call(Restrict, N, Name, Desc),nl,
+    call(Restrict, N, Name, Desc),
     M is N+1,
     print_tree(Name, M, Restrict),
     print_forest(Xs, N, Restrict).
@@ -386,7 +408,7 @@ mymain:-
     topl(status,Status), load_db(Status),
     topl(priority,Prio), load_db(Prio),
     topl(date,Dat), load_db(Dat),!,
-    catch(do_command, Error, write(Error)).
+    do_command.
 
 c_red(Str):- write('[0;31m'), write(Str),write('[0m').
 c_green(Str):- write('[0;32m'), write(Str),write('[0m').

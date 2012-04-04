@@ -3,7 +3,7 @@ status(admission,todo).
 status(apartment,todo).
 status(books,todo).
 status(capek,todo).
-status(conra,todo).
+status(conra,done).
 status(cs321,done).
 status(cs507,todo).
 status(cs533,todo).
