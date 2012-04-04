@@ -401,9 +401,19 @@ do_command :-
     do_command.
 
 main:-
-    catch(mymain, E,
-                ( print(E), fail)
-          ).
+    catch(
+      mymain,
+      error(EType, Info),
+      process_error(EType)
+    ).
+
+process_error(existence_error(source_sink,File)) :-
+  write('Error in reading:'), write(File), nl,
+  touch(File),
+  true.
+
+process_error(Err) :-
+  write(Err), fail.
 
 mymain:-
     db_dir(DbDir),
