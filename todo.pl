@@ -274,6 +274,9 @@ command(load, File) :-
     load_db(File).
 
 command(list, Root) :-
+    print_tree(Root, 0, print_leaf), nl.
+
+command(show, Root) :-
     print_tree(Root, 0, print_todo), nl.
 
 command(due, DayMonthYear) :-
@@ -288,7 +291,7 @@ command(Cmd, Sub) :-
     write('unrec'),nl.
 
 command(list) :-
-    print_tree(osu, 0, print_todo), nl.
+    print_tree(osu, 0, print_leaf), nl.
 
 command(save) :-
     save.
@@ -317,7 +320,7 @@ command(help) :-
     write('load <file>'),nl.
 
 command(show) :-
-    print_tree(osu, 0, print_leaf), nl.
+    print_tree(osu, 0, print_todo), nl.
 
 %command(dump) :-
 %    listing(db/5).
