@@ -12,6 +12,7 @@ read_line(Codes) :-
     ).
 
 portray(str(S)):- write('\''), write(S), write('\'').
+portray(d(D,M,Y)) :- write(D),write('/'), write(M), write('/'), write(Y).
 
 print_arr([]).
 print_arr([X|Xs]):-
@@ -19,19 +20,23 @@ print_arr([X|Xs]):-
     print_arr(Xs).
 
 printit(db) :-
-    bagof(db(Name, str(Desc)), db(Name, Desc), Ds),
+    setof(db(Name, str(Desc)), db(Name, Desc), Ds),
     print_arr(Ds).
 
 printit(parent) :-
-    bagof(parent(Parent, Name), parent(Parent, Name), Ds),
+    setof(parent(Parent, Name), parent(Parent, Name), Ds),
     print_arr(Ds).
 
 printit(status) :-
-    bagof(status(Name, Status), status(Name, Status), Ss),
+    setof(status(Name, Status), status(Name, Status), Ss),
     print_arr(Ss).
 
 printit(priority) :-
-    bagof(priority(Name, Priority), priority(Name, Priority), Ss),
+    setof(priority(Name, Priority), priority(Name, Priority), Ss),
+    print_arr(Ss).
+
+printit(date) :-
+    setof(date(Name, Date), date(Name, Date), Ss),
     print_arr(Ss).
 
 
@@ -53,6 +58,10 @@ topl(priority,File):-
 topl(parent,File):-
     pl_file('parent.pl', File).
 
+topl(date,File):-
+    pl_file('date.pl', File).
+
+
 save(It) :-
     telling(Old),
     topl(It,Db),
@@ -66,7 +75,8 @@ save :-
   save(db),
   save(parent),
   save(status),
-  save(priority).
+  save(priority),
+  save(date).
 
 touch(File) :- 
     telling(Old),
@@ -80,7 +90,8 @@ create :-
     topl(db,Db),touch(Db),
     topl(parent,Rel),touch(Rel),
     topl(priority,Prio),touch(Prio),
-    topl(status,Stat),touch(Stat).
+    topl(status,Stat),touch(Stat),
+    topl(date,Dat),touch(Dat).
 
        
 string_tokens(Cs, Ts) :-
@@ -105,13 +116,20 @@ add(Parent, Name, Desc) :-
     assertz(status(Name, todo)),
     assertz(priority(Name, normal)).
 
-:- dynamic([db/2, parent/2, status/2, priority/2]).
-:- public([db/2, parent/2, status/3, priority/2]).
+:- dynamic([db/2, parent/2, status/2, priority/2, date/2]).
+:- public([db/2, parent/2, status/2, priority/2, date/2]).
+
+db(main, 'Main').
+parent(main, osu).
+status(main, todo).
+priority(main, normal).
+date(main, d(1,1,9999)).
 
 load_db(File):-
     see(File),
     repeat,
     read(B),
+    retractall(B),
     assertz(B),
     (  B = end_of_file ->
        true, !
@@ -120,14 +138,47 @@ load_db(File):-
     seen.
 
 % -----------------------------------------------
+today(Day,Month,Year) :-
+  date_time(dt(Year, Month, Day, Hour, Minute, Second)).
+
+parse_date(Txt, D) :- phrase(date(D), Txt).
+
+isdigit(Ch) :-
+  0'0 =< Ch, Ch =< 0'9.
+
+digits(N) --> digits(0, N).
+digits(N0, N) --> % N0 is number already read
+  [Char], {isdigit(Char)},
+  { N1 is N0 * 10 + (Char - 0'0) },
+  ( digits(N1, N) ; { N = N1 }).
+
+date(d(D,M,Y)) --> digits(D),{D > 0, D < 32}, "/", digits(M),{M > 0, M < 13}, "/", digits(Y).
+
+due_year(Year, Name) :-
+  date(Name, d(_,_,Y)),
+  Year #>=# Y.
+
+due_month(Year, Month, Name) :-
+  date(Name, d(_,M,Year)),
+  Month #>=# M.
+
+due_day(Year, Month, Day, Name) :-
+  date(Name, d(D,Month,Year)),
+  Day #>=# D.
+
+due_date(Day, Month, Year, Name) :- 
+    due_year(Year, Name);
+    due_month(Year, Month, Name);
+    due_day(Year, Month, Day, Name).
+
+% -----------------------------------------------
 
 process([]).
 
-process([W,X,Y,Z|[]]) :-
+process([W,X,Y|Rest]) :-
     write_to_atom(Cmd, W),
     write_to_atom(SubCmd, X),
     write_to_atom(Arg, Y),
-    write_to_atom(Rest, Z),
     command(Cmd, SubCmd, Arg, Rest).
 
 process([X,Y,Z|[]]) :-
@@ -145,7 +196,44 @@ process([X|[]]) :-
     write_to_atom(Cmd, X),
     command(Cmd).
 
+ncommand(tag, Name, Priority) :- 
+    db(Name, Desc),
+    status(Name, Status),
+    priority(Name, Prio),
+    retractall(priority(Name, Prio)),
+    assertz(priority(Name, Priority)).
+
 command(Cmd, Sub, Arg, Rest) :- 
+    write('unrec'),nl.
+
+command(add, Parent, UName) :-
+    ulcaseatom(Name, UName),
+    write(Name),
+    (db(Name, Desc) -> (
+      write(' Already used. '), write(': '), write(Desc), nl
+    ) ; (
+      write('> '),
+      read_line(List),
+      atom_codes(SList, List),
+      write_to_atom(AList, SList),
+      add(Parent, Name, AList)
+    )).
+
+command(by, Name, DayMonthYear) :-
+    atom_codes(DayMonthYear, DayMonthYearS),
+    parse_date(DayMonthYearS, d(Day,Month,Year)),
+    retractall(date(Name, _)),
+    assertz(date(Name, d(Day, Month, Year))).
+
+command(tag, Name, normal) :- 
+        ncommand(tag, Name, normal).
+command(tag, Name, important) :- 
+        ncommand(tag, Name, important).
+command(tag, Name, low) :- 
+        ncommand(tag, Name, low).
+
+
+command(Cmd, Sub, Arg) :- 
     write('unrec'),nl.
 
 command(done, Name) :- 
@@ -157,7 +245,8 @@ command(rm, Name) :-
     retractall(db(Name,_)),
     retractall(parent(_, Name)),
     retractall(status(Name, _)),
-    retractall(priority(Name, _)).
+    retractall(priority(Name, _)),
+    retractall(date(Name, _)).
 
 command(delete, Name) :- 
     status(Name, todo),
@@ -165,20 +254,33 @@ command(delete, Name) :-
     retractall(db(Name,_)),
     retractall(parent(Parent,Name)),
     retractall(priority(Name,_)),
-    retractall(status(Name, todo)).
+    retractall(status(Name, todo)),
+    retractall(date(Name, _)).
 
 
 command(load, File) :-
     load_db(File).
 
 command(list, Root) :-
-    print_tree(Root, 0, print_todo).
+    print_tree(Root, 0, print_todo), nl.
+
+command(due, DayMonthYear) :-
+    atom_codes(DayMonthYear, DayMonthYearS),
+    parse_date(DayMonthYearS, d(Day,Month,Year)) -> (
+      setof(Name, due_date(Day, Month, Year, Name), Res) -> (print_arr(Res),nl) ; nl
+    ) ; (
+      write('Incorrect Date format'), nl
+    ).
+
+command(Cmd, Sub) :- 
+    write('unrec'),nl.
 
 command(list) :-
-    print_tree(osu, 0, print_todo).
+    print_tree(osu, 0, print_todo), nl.
 
 command(save) :-
     save.
+
 
 command(create) :-
     create.
@@ -195,47 +297,26 @@ command(help) :-
     write('rm <name> (even for done tasks)'),nl,
     write('delete <name> (works only with tasks with status todo)'),nl,
     write('done <name>'),nl,
+    write('by <name> <dd/mm/yyyy>'),nl,
+    write('due <dd/mm/yyyy>'),nl,
     write('show <name>'),nl,
     write('list <name>'),nl,
     write('tag <name> <priority>'),nl,
     write('load <file>'),nl.
 
 command(show) :-
-    print_tree(osu, 0, print_leaf).
+    print_tree(osu, 0, print_leaf), nl.
 
 %command(dump) :-
 %    listing(db/5).
 
+command(due) :-
+    today(Day, Month, Year),
+    setof(Name, due_date(Day, Month, Year, Name), Res) -> (print_arr(Res),nl) ; nl .
+
 command(List) :-
     write('unrec:'), write(List),nl.
 
-
-command(add, Parent, UName) :-
-    ulcaseatom(Name, UName),
-    write(Name),
-    (db(Name, Desc) -> (
-      write(' Already used. '), write(': '), write(Desc), nl
-    ) ; (
-      write('> '),
-      read_line(List),
-      atom_codes(SList, List),
-      write_to_atom(AList, SList),
-      add(Parent, Name, AList)
-    )).
-
-command(tag, Name, normal) :- 
-        ncommand(tag, Name, normal).
-command(tag, Name, important) :- 
-        ncommand(tag, Name, important).
-command(tag, Name, low) :- 
-        ncommand(tag, Name, low).
-
-ncommand(tag, Name, Priority) :- 
-    db(Name, Desc),
-    status(Name, Status),
-    priority(Name, Prio),
-    retractall(priority(Name, Prio)),
-    assertz(priority(Name, Priority)).
 
 print_tree(Root, N, Restrict) :-
     findall((Name, Desc), (parent(Root, Name), db(Name, Desc)), Ds),
@@ -243,31 +324,32 @@ print_tree(Root, N, Restrict) :-
 
 
 print_leaf(N, Name, Desc) :- status(Name, todo), priority(Name, low),
-    write_tab(N),c_white(Name), write(': '), write(Desc),nl.
+    write_tab(N),c_white(Name), write(': '), write(Desc),!.
 
 print_leaf(N, Name, Desc) :- status(Name, todo), priority(Name, important),
-    write_tab(N),c_byellow(Name), write(': '), write(Desc),nl.
+    write_tab(N),c_byellow(Name), write(': '), write(Desc),!.
 
 print_leaf(N, Name, Desc) :- status(Name, todo),
-    write_tab(N),c_green(Name), write(': '), write(Desc),nl.
+    (date(Name, D) -> print(D) ; write(' ')),
+    write_tab(N),c_green(Name), write(': '), write(Desc),!.
 
 print_leaf(N, Name, Desc) :-
-    write_tab(N),c_blue(Name), write(': '), write(Desc),nl.
+    write_tab(N),c_blue(Name), write(': '), write(Desc),!.
 
- 
 print_todo(N, Name, Desc) :- status(Name, todo), priority(Name, low),
-    write_tab(N),c_white(Name), write(': '), write(Desc),nl.
+    write_tab(N),c_white(Name), write(': '), write(Desc),!.
 
 print_todo(N, Name,Desc) :- status(Name, todo), priority(Name, important),
-    write_tab(N),c_byellow(Name), write(': '), write(Desc),nl.
+    write_tab(N),c_byellow(Name), write(': '), write(Desc),!.
 
 print_todo(N, Name, Desc) :- status(Name, todo),
-    write_tab(N),c_green(Name), write(': '), write(Desc),nl.
+    write_tab(N),c_green(Name), write(': '), write(Desc),!.
 
 print_todo(_N, Name, _Desc) :- status(Name, done).
+% skip printing all the done tasks.
 
 print_forest([(Name, Desc)|Xs], N, Restrict) :-
-    call(Restrict, N, Name, Desc),
+    call(Restrict, N, Name, Desc),nl,
     M is N+1,
     print_tree(Name, M, Restrict),
     print_forest(Xs, N, Restrict).
@@ -293,19 +375,18 @@ do_command :-
     !,
     do_command.
 
-
 main:-
+    catch(mymain, Error, write(Error)).
+
+mymain:-
     db_dir(DbDir),
     (file_exists(DbDir); create),
-    topl(db,Db),
-    load_db(Db),
-    topl(parent,Rel),
-    load_db(Rel),
-    topl(status,Status),
-    load_db(Status),
-    topl(priority,Prio),
-    load_db(Prio),
-    do_command.
+    topl(db,Db), load_db(Db),
+    topl(parent,Rel), load_db(Rel),
+    topl(status,Status), load_db(Status),
+    topl(priority,Prio), load_db(Prio),
+    topl(date,Dat), load_db(Dat),!,
+    catch(do_command, Error, write(Error)).
 
 c_red(Str):- write('[0;31m'), write(Str),write('[0m').
 c_green(Str):- write('[0;32m'), write(Str),write('[0m').

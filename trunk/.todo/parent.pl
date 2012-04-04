@@ -10,9 +10,9 @@ parent(academics,research).
 parent(academics,ta).
 parent(books,capek).
 parent(books,dobry).
+parent(czech_movies,wild).
 parent(czeckmovies,kolja).
 parent(czeckmovies,kuky).
-parent(czech_movies,wild).
 parent(ihouse,rent).
 parent(life,apartment).
 parent(life,books).
