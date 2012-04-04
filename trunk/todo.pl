@@ -402,7 +402,7 @@ do_command :-
 
 main:-
     catch(mymain, E,
-                ( print_message(error, E), fail)
+                ( print(E), fail)
           ).
 
 mymain:-
