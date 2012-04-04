@@ -398,7 +398,9 @@ do_command :-
     do_command.
 
 main:-
-    catch(mymain, Error, write(Error)).
+    catch(mymain, E,
+                ( print_message(error, E), fail)
+          ).
 
 mymain:-
     db_dir(DbDir),
